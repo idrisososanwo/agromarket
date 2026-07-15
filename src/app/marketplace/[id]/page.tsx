@@ -1,12 +1,14 @@
 'use client'
 
-import React, { use } from 'react'
+import React, { use, useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, MapPin, Calendar, Layers, ShieldCheck, ShoppingCart, MessageSquare } from 'lucide-react'
 import { toast } from 'sonner'
 
+import { createClient } from '@/lib/supabase/client'
 import { useProduct } from '@/features/marketplace/hooks/use-marketplace-queries'
+import { useAddToCart } from '@/features/buyer/hooks/use-buyer-queries'
 import { ProductImage } from '@/features/marketplace/components/ProductImage'
 import { ProductPrice } from '@/features/marketplace/components/ProductPrice'
 import { ProductBadge } from '@/features/marketplace/components/ProductBadge'
@@ -24,10 +26,25 @@ export default function ProductDetailsPage({ params }: PageProps) {
   const resolvedParams = use(params)
   const id = resolvedParams.id
 
+  const supabase = createClient()
+  const [buyerId, setBuyerId] = useState<string>('')
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setBuyerId(user.id)
+    })
+  }, [])
+
   const { data: product, isLoading, isError, error } = useProduct(id)
+  const { mutate: addToCartMutate, isPending: isAdding } = useAddToCart()
 
   const handleAddToCart = () => {
-    toast.success(`[Placeholder] ${product?.title} added to cart!`)
+    if (!buyerId) {
+      toast.error('Please log in to add items to your cart')
+      router.push('/login')
+      return
+    }
+    addToCartMutate({ buyerId, productId: id, quantity: 1 })
   }
 
   const handleContactSeller = () => {
@@ -166,11 +183,16 @@ export default function ProductDetailsPage({ params }: PageProps) {
           <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-border">
             <Button
               onClick={handleAddToCart}
+              disabled={isAdding}
               className="flex-1 cursor-pointer"
               size="lg"
             >
-              <ShoppingCart className="size-4 mr-2" />
-              Add to Cart
+              {isAdding ? 'Adding to Cart...' : (
+                <>
+                  <ShoppingCart className="size-4 mr-2" />
+                  Add to Cart
+                </>
+              )}
             </Button>
             <Button
               onClick={handleContactSeller}
