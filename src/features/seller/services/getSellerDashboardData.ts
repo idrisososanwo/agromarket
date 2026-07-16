@@ -21,16 +21,28 @@ export async function getSellerDashboardData(sellerId: string): Promise<SellerDa
 
   if (apError) throw new Error(apError.message)
 
-  // 3. Fetch orders and calculate revenue
-  const { data: orders, error: oError } = await supabase
-    .from('orders')
-    .select('*, profiles:buyer_id(full_name, avatar_url), products:product_id(title, image_url)')
+  // 3. Fetch orders items for seller
+  const { data: items, error: oError } = await supabase
+    .from('order_items')
+    .select('*, orders(buyer_id, profiles:buyer_id(full_name, avatar_url)), products:product_id(title, image_url)')
     .eq('seller_id', sellerId)
     .order('created_at', { ascending: false })
 
   if (oError) throw new Error(oError.message)
 
-  const typedOrders = (orders as unknown as SellerOrder[]) || []
+  const typedOrders: SellerOrder[] = (items || []).map((item: any) => ({
+    id: item.id,
+    product_id: item.product_id,
+    seller_id: item.seller_id,
+    buyer_id: item.orders?.buyer_id || '',
+    quantity: Number(item.quantity),
+    total_price: Number(item.total_price),
+    status: item.status,
+    created_at: item.created_at,
+    profiles: item.orders?.profiles || null,
+    products: item.products || null,
+  }))
+
   const totalOrders = typedOrders.length
   
   // Calculate completed order revenue

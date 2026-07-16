@@ -1,0 +1,8 @@
+'use client'
+
+import React from 'react'
+import { CheckoutForm } from '@/features/checkout/components/CheckoutForm'
+
+export default function CheckoutPage() {
+  return <CheckoutForm />
+}
