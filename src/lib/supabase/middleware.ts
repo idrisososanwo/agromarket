@@ -6,9 +6,16 @@ export async function updateSession(request: NextRequest) {
     request,
   })
 
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!supabaseUrl || !supabaseKey) {
+    return supabaseResponse
+  }
+
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    supabaseUrl,
+    supabaseKey,
     {
       cookies: {
         getAll() {
@@ -27,7 +34,6 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  // Refresh session if needed by fetching user info
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -39,18 +45,49 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith('/forgot-password')
 
   if (user && isAuthPage) {
-    // If the user is logged in, redirect them to the home page (dashboard)
     const url = request.nextUrl.clone()
     url.pathname = '/'
     return NextResponse.redirect(url)
   }
 
-  // Feel free to add route protection here if there are other dashboard pages, e.g.:
-  // if (!user && pathname.startsWith('/dashboard')) {
-  //   const url = request.nextUrl.clone()
-  //   url.pathname = '/login'
-  //   return NextResponse.redirect(url)
-  // }
+  const authRoutes = ['/buyer', '/seller', '/checkout', '/orders', '/payment', '/profile']
+  const isAdminRoute = pathname.startsWith('/admin')
+  const isAuthRequired = authRoutes.some((route) => pathname.startsWith(route))
+
+  if (isAuthRequired || isAdminRoute) {
+    if (!user) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/login'
+      url.searchParams.set('next', pathname)
+      return NextResponse.redirect(url)
+    }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    const role = profile?.role || 'buyer'
+
+    if (isAdminRoute && role !== 'admin') {
+      const url = request.nextUrl.clone()
+      url.pathname = '/403'
+      return NextResponse.redirect(url)
+    }
+
+    if (pathname.startsWith('/buyer') && role !== 'buyer' && role !== 'admin') {
+      const url = request.nextUrl.clone()
+      url.pathname = '/403'
+      return NextResponse.redirect(url)
+    }
+
+    if (pathname.startsWith('/seller') && role !== 'seller' && role !== 'admin') {
+      const url = request.nextUrl.clone()
+      url.pathname = '/403'
+      return NextResponse.redirect(url)
+    }
+  }
 
   return supabaseResponse
 }
