@@ -23,6 +23,10 @@ export const SessionContext = createContext<SessionContextType>({
   isLoading: true,
 })
 
+export function useSession() {
+  return React.useContext(SessionContext)
+}
+
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
