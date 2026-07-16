@@ -1,100 +1,105 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { User, Shield, Mail, Calendar } from 'lucide-react'
-
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { DashboardHeader } from '@/features/buyer/components/DashboardHeader'
-import { Skeleton } from '@/components/ui/skeleton'
+import { useProfile } from '@/features/profile/hooks/use-profile-queries'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@/components/ui/button'
+import { MapPin, Phone, User, Edit } from 'lucide-react'
 
 export default function BuyerProfilePage() {
+  const router = useRouter()
   const supabase = createClient()
-  const [profile, setProfile] = useState<any>(null)
-  const [email, setEmail] = useState<string>('')
-  const [isLoading, setIsLoading] = useState(true)
+  const [userId, setUserId] = useState<string>('')
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
+    supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
-        setEmail(user.email || '')
-        const { data } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single()
-        setProfile(data)
+        setUserId(user.id)
+      } else {
+        router.push('/login')
       }
-      setIsLoading(false)
-    }
-    fetchProfile()
-  }, [])
+    })
+  }, [router, supabase])
 
-  if (isLoading) {
+  const { data: profile, isLoading } = useProfile(userId)
+
+  if (isLoading || !userId) {
     return (
-      <div className="space-y-6">
-        <Skeleton className="h-8 w-1/4 rounded-none" />
+      <div className="max-w-xl mx-auto px-4 py-8 space-y-6">
+        <Skeleton className="h-6 w-1/4 rounded-none" />
         <Skeleton className="h-48 w-full rounded-none" />
       </div>
     )
   }
 
-  const date = profile?.updated_at
-    ? new Intl.DateTimeFormat('en-US', { dateStyle: 'long' }).format(new Date(profile.updated_at))
-    : 'N/A'
+  if (!profile) {
+    return (
+      <div className="text-center py-20">
+        <p className="text-sm text-muted-foreground">Profile not found.</p>
+      </div>
+    )
+  }
 
   return (
-    <div className="space-y-6">
-      <DashboardHeader
-        title="My Profile"
-        description="View your user settings, email address, and active role."
-      />
+    <div className="max-w-xl mx-auto px-4 py-8 space-y-8 select-none">
+      <div className="flex justify-between items-center">
+        <h1 className="text-xl font-bold tracking-tight font-heading text-foreground">Delivery Settings</h1>
+        <Button
+          onClick={() => router.push('/profile/edit')}
+          size="sm"
+          variant="outline"
+          className="rounded-none cursor-pointer text-xs uppercase font-bold tracking-wider gap-1.5"
+        >
+          <Edit className="size-4" />
+          Edit Details
+        </Button>
+      </div>
 
-      <Card className="border border-border bg-card rounded-none max-w-xl">
+      <Card className="border border-border bg-card rounded-none">
         <CardHeader className="p-6 border-b border-border">
-          <CardTitle className="text-sm font-bold tracking-wider uppercase text-foreground">
-            Account Information
+          <CardTitle className="text-xs font-bold tracking-wider uppercase text-foreground">
+            Saved Delivery Coordinates
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-6 space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="size-10 bg-zinc-100 dark:bg-zinc-900 border border-border flex items-center justify-center text-muted-foreground shrink-0">
-              <User className="size-5" />
-            </div>
-            <div>
-              <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider select-none">Full Name</p>
-              <p className="text-sm font-semibold text-foreground">{profile?.full_name || 'AgroMarket Member'}</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="size-10 bg-zinc-100 dark:bg-zinc-900 border border-border flex items-center justify-center text-muted-foreground shrink-0">
-              <Mail className="size-5" />
-            </div>
-            <div>
-              <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider select-none">Email Address</p>
-              <p className="text-sm font-semibold text-foreground">{email}</p>
+        <CardContent className="p-6 space-y-6 font-sans">
+          <div className="flex items-start gap-3">
+            <User className="size-5 text-emerald-600 dark:text-emerald-500 shrink-0 mt-0.5" />
+            <div className="space-y-0.5">
+              <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Default Recipient Name</span>
+              <p className="text-xs font-bold text-foreground mt-0.5">
+                {profile.full_name || 'Not configured'}
+              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="size-10 bg-zinc-100 dark:bg-zinc-900 border border-border flex items-center justify-center text-muted-foreground shrink-0">
-              <Shield className="size-5" />
-            </div>
-            <div>
-              <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider select-none">Portal Role</p>
-              <p className="text-sm font-semibold text-foreground capitalize">{profile?.role || 'Buyer'}</p>
+          <div className="flex items-start gap-3 border-t border-border pt-6">
+            <Phone className="size-5 text-emerald-600 dark:text-emerald-500 shrink-0 mt-0.5" />
+            <div className="space-y-0.5">
+              <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Contact Phone Number</span>
+              <p className="text-xs font-bold text-foreground mt-0.5">
+                {profile.phone || 'Not configured'}
+              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="size-10 bg-zinc-100 dark:bg-zinc-900 border border-border flex items-center justify-center text-muted-foreground shrink-0">
-              <Calendar className="size-5" />
-            </div>
-            <div>
-              <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider select-none">Last Profile Update</p>
-              <p className="text-sm font-semibold text-foreground">{date}</p>
+          <div className="flex items-start gap-3 border-t border-border pt-6">
+            <MapPin className="size-5 text-emerald-600 dark:text-emerald-500 shrink-0 mt-0.5" />
+            <div className="space-y-0.5">
+              <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Saved Shipping Address</span>
+              {profile.address ? (
+                <div className="text-xs font-bold text-foreground mt-1 leading-relaxed whitespace-pre-line">
+                  {profile.address}
+                  <br />
+                  {profile.city}, {profile.state} {profile.postal_code}
+                  <br />
+                  {profile.country}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground mt-0.5">No address saved yet. Fill it in to speed up checkout.</p>
+              )}
             </div>
           </div>
         </CardContent>
