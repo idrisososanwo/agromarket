@@ -1,57 +1,54 @@
-# Reviews, Ratings & Reputation Module Walkthrough
+# Search, Recommendations & Discovery Module Walkthrough
 
-Detailed overview of the newly implemented Reviews, Ratings, and Reputation module, including files created, database schema, verification mechanisms, and reputation calculations.
+Detailed overview of the newly implemented Search, Filtering, Recommendations, and Product Discovery module, including files created, database schema, search architecture, recommendations generation, and filtering mechanism.
 
 ---
 
-## 1. Database Schema (`supabase/migrations/10_reviews_schema.sql`)
-Implemented three core tables and two aggregated database views for performance-oriented ratings calculations:
-- `reviews` table: Stores review ratings (1–5), optional title, comment, verified status, seller responses, and helpful counts.
-- `review_reports` table: Allows buyers/sellers to report reviews for spam/abuse/offensive content.
-- `review_helpful_votes` table: Tracks buyer helpful marks to prevent double-voting.
-- `seller_reputation` view: Aggregates seller ratings, total reviews count, and seller response rate percentage.
-- `product_rating_summary` view: Aggregates product rating distribution, verified review counts, and overall average score.
+## 1. Database Schema (`supabase/migrations/11_search_recommendations_schema.sql`)
+Implemented two core tables for user telemetry and history tracking:
+- `search_history` table: Records search terms entered by logged-in users with a capping trigger keeping only the last 10 unique searches.
+- `recently_viewed` table: Records product pages visited by the user to populate the dynamic discovery carousel.
 
 ---
 
 ## 2. Types & Schema Definitions
-- `src/features/reviews/types/index.ts`: Standard TypeScript interfaces matching Supabase tables and views.
-- `src/features/reviews/schemas/index.ts`: Strict Zod validation rules enforcing rating checks, character length, and response limits.
+- `src/features/search/types/index.ts`: Standard TypeScript interfaces matching the filters, sorting options, suggestions, history, and recently viewed.
 
 ---
 
-## 3. Database Services (`src/features/reviews/services/`)
-- `createReview.ts`: Validates that a buyer has actually ordered the product, the order is delivered, and they haven't reviewed it yet (enforcing verified purchases on the server side).
-- `updateReview.ts`: Authenticates owner before modifying title, stars, or comments.
-- `deleteReview.ts`: Restricts deletions to the author or admins.
-- `getProductReviews.ts`: Loads product-specific reviews with stars filter, search query, and sorting selection.
-- `getSellerReviews.ts`: Loads seller-specific reviews.
-- `getUnreviewedItems.ts`: Locates delivered items purchased by the buyer that are awaiting reviews.
-- `markHelpful.ts`: Toggles helpful votes on reviews and updates counters.
-- `reportReview.ts`: Flags review and saves report notes.
-- `respondToReview.ts`: Handles seller-written replies.
+## 3. Database Services (`src/features/search/services/`)
+- `searchProducts.ts`: Performs ILIKE pattern matching across product titles, descriptions, categories, and location fields. Supports price limits, category filters, and location dropdown constraints.
+- `getRecommendations.ts`: Personalizes picks using recent search terms and falls back to top-rated items.
+- `getTrendingProducts.ts`: Fetches products ordered by creation/activity levels.
+- `getRelatedProducts.ts`: Loads category-matched items excluding the active product's ID.
+- `saveSearchHistory.ts` & `getRecentSearches.ts`: Manages user search history.
+- `getRecentlyViewed.ts`: Captures and returns recently-viewed logs.
 
 ---
 
-## 4. Hooks (`src/features/reviews/hooks/use-reviews.ts`)
+## 4. Hooks (`src/features/search/hooks/use-search.ts`)
 Hooks built on top of TanStack Query:
-- `useProductReviews(productId, filters)`
-- `useProductRatingSummary(productId)`
-- `useSellerReviews(sellerId, filters)`
-- `useSellerReputation(sellerId)`
-- `useMyReviews()`
-- `useUnreviewedItems()`
-- `useCreateReview()`, `useUpdateReview()`, `useDeleteReview()`, `useMarkHelpful()`, `useReportReview()`, `useRespondToReview()`
+- `useSearchProducts(searchTerm, filters, sort, page)`
+- `useRecommendations()`
+- `useTrendingProducts()`
+- `useRelatedProducts(productId, category)`
+- `useRecentSearches()`
+- `useRecentlyViewed()`
+- `useSaveSearchHistory()`
+- `useSaveRecentlyViewed()`
 
 ---
 
 ## 5. UI Components & App Pages
-- **Rating Stars**: Interactive star inputs and static displays.
-- **Rating Breakdown**: Horizontal rating distribution percentages (5★ down to 1★).
-- **Review Card & List**: Displays user avatar, date, star count, comment, edit/delete controls, helpful toggles, and report triggers.
-- **Seller Response**: Handles professional inline seller feedback submission.
+- **SearchBar**: Global search box with recent and popular search popovers.
+- **FilterSidebar**: Left filter bar containing category lists, price ranges, locations, and status filters.
+- **FilterDrawer**: Responsive mobile drawer overlay.
+- **SortDropdown**: Ordering options (price, rating, date).
+- **ActiveFilters**: Clearable badges displaying active search query limits.
+- **RecommendationCarousel**: Horizontal scrollable product queues.
+- **CategoryGrid**: Curated categories with visually rich gradients.
 - **Pages**:
-  - `/reviews`: Inbox history with tabs: "Pending Reviews" and "Reviews Written".
-  - `/reviews/[id]`: Form where users input stars and write feedback.
-  - `/seller/[id]/reviews`: Public reputation score breakdown and seller reviews.
-  - `/product/[id]/reviews`: Detailed list of product reviews.
+  - `/search`: Main search results panel.
+  - `/categories/[category]`: Category slug browse view.
+  - `/recommendations`: Personalized product hub.
+  - `/trending`: List of popular listings.
