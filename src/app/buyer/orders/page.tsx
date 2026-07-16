@@ -3,41 +3,41 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { useSellerOrders } from '@/features/orders/hooks/use-orders-queries'
+import { useBuyerOrders } from '@/features/orders/hooks/use-orders-queries'
 import { OrderStatusBadge } from '@/features/orders/components/OrderStatusBadge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Search, Eye, ClipboardList } from 'lucide-react'
+import { Search, Eye } from 'lucide-react'
 import { OrderStatus } from '@/features/orders/types'
-import { DashboardHeader } from '@/features/seller/components/DashboardHeader'
 
-export default function SellerOrdersPage() {
+export default function BuyerOrdersPage() {
   const router = useRouter()
   const supabase = createClient()
-  const [sellerId, setSellerId] = useState<string>('')
+  const [buyerId, setBuyerId] = useState<string>('')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all')
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
-        setSellerId(user.id)
+        setBuyerId(user.id)
       } else {
         router.push('/login')
       }
     })
   }, [router, supabase])
 
-  const { data: orders, isLoading } = useSellerOrders(sellerId, statusFilter, search)
+  const { data: orders, isLoading } = useBuyerOrders(buyerId, statusFilter, search)
 
-  if (isLoading || !sellerId) {
+  if (isLoading || !buyerId) {
     return (
       <div className="space-y-6 max-w-5xl mx-auto px-4 py-8">
         <Skeleton className="h-8 w-1/4 rounded-none" />
         <div className="space-y-4">
           <Skeleton className="h-12 w-full rounded-none" />
+          <Skeleton className="h-24 w-full rounded-none" />
           <Skeleton className="h-24 w-full rounded-none" />
         </div>
       </div>
@@ -46,10 +46,10 @@ export default function SellerOrdersPage() {
 
   return (
     <div className="space-y-8 max-w-5xl mx-auto px-4 py-8 select-none">
-      <DashboardHeader
-        title="Incoming Orders"
-        description="Fulfill orders, configure tracking, and sync payments with Stellar."
-      />
+      <div>
+        <h1 className="text-xl font-bold tracking-tight font-heading text-foreground">Purchase History</h1>
+        <p className="text-xs text-muted-foreground mt-1">Manage and track your ordered marketplace products.</p>
+      </div>
 
       <div className="flex flex-col sm:flex-row gap-3 pt-2">
         <div className="relative flex-1">
@@ -98,7 +98,7 @@ export default function SellerOrdersPage() {
                       <span className="font-semibold text-foreground mt-0.5 block">{order.delivery_name}</span>
                     </div>
                     <div>
-                      <span className="text-[9px] uppercase font-bold tracking-wider block">Order Total</span>
+                      <span className="text-[9px] uppercase font-bold tracking-wider block">Total Amount</span>
                       <span className="font-semibold text-foreground mt-0.5 block">${Number(order.total_amount).toFixed(2)}</span>
                     </div>
                     <div>
@@ -106,7 +106,7 @@ export default function SellerOrdersPage() {
                       <span className="font-semibold text-foreground mt-0.5 block uppercase">{order.payment_status}</span>
                     </div>
                     <div>
-                      <span className="text-[9px] uppercase font-bold tracking-wider block">Date</span>
+                      <span className="text-[9px] uppercase font-bold tracking-wider block">Order Date</span>
                       <span className="font-semibold text-foreground mt-0.5 block">
                         {new Date(order.created_at).toLocaleDateString()}
                       </span>
@@ -114,27 +114,32 @@ export default function SellerOrdersPage() {
                   </div>
                 </div>
 
-                <div className="w-full md:w-auto">
+                <div className="flex gap-2 w-full md:w-auto">
                   <Button
                     onClick={() => router.push(`/orders/${order.id}`)}
                     variant="outline"
-                    className="w-full md:w-auto cursor-pointer rounded-none text-xs uppercase font-bold tracking-wider gap-1.5"
+                    className="flex-1 md:flex-none cursor-pointer rounded-none text-xs uppercase font-bold tracking-wider gap-1.5"
                   >
                     <Eye className="size-4" />
-                    Manage & Details
+                    Details
                   </Button>
+                  {order.tracking_number && (
+                    <Button
+                      onClick={() => router.push(`/orders/tracking/${order.id}`)}
+                      className="flex-1 md:flex-none cursor-pointer rounded-none text-xs uppercase font-bold tracking-wider"
+                    >
+                      Track
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center py-20 text-center border border-dashed border-border rounded-none bg-zinc-50/50 dark:bg-zinc-900/10 select-none">
-          <ClipboardList className="size-12 text-zinc-400 stroke-[1.2] mb-3" />
-          <h3 className="text-sm font-semibold tracking-wider uppercase font-heading text-foreground mb-1">No Orders Yet</h3>
-          <p className="text-xs text-muted-foreground max-w-xs leading-relaxed">
-            Your products haven't received any orders yet. Once buyers purchase your listed produce, they will show up here.
-          </p>
+        <div className="border border-dashed border-border py-16 text-center select-none">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">No orders found</h3>
+          <p className="text-xs text-muted-foreground mt-1">You haven&apos;t placed any orders matching the filters.</p>
         </div>
       )}
     </div>
